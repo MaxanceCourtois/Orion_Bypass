@@ -41,11 +41,19 @@ Le loader se substitue au *Windows Loader* standard pour minimiser les interacti
 
 Pour renforcer la robustesse, nous intégrons des passes **OLLVM (Obfuscated LLVM)** au niveau de l'IR (Intermediate Representation) via le compilateur `clang`.
 
-* **Outil utilisé** : Fork `ollvm16` (wwh1004).
+* **Outil utilisé** : Fork `ollvm16` (wwh1004), fork `llvm-project` (llvm), ce dernier étant un outil qui permet de construire et gérer des compilateurs.
 * **Avantage** : Rend le binaire illisible par désassemblage et efface les signatures statiques.
 * **Optimisation** : Utilisation de flags spécifiques pour cibler les fonctions critiques et limiter l'impact sur les performances.
 
-### Commandes d'utilisation
+### Fonctionnement technique
+
+ollvm utilise des fonctions d'obfuscation, qui ont dues être intégrées dans les librairies de llvm-project. Quelques exemples de ces fonctions :
+
+1. **Control Flow Flattening (CFF)** : « aplatit » les boucles et les conditions dans un while contenant un switch central, contrôlé par une variable d’état (on entre dans une condition selon la valeur de la variable d’état, qui est modifiée à chaque tour de boucle selon la condition remplie)
+2. **Bogus Control Flow (BCF)** : ajoute du junk code dans le code source, *i.e* du code inutile qui va donc modifier le binaire pour aucune opération effectuée
+3. **Substitution d’instructions** : transforme des opérations mathématiques simples en des séquences d’opérations logiques complexes (avec des XOR, AND, NOT)
+
+## Commandes d'utilisation
 
 **1. Génération du code source obfusqué (Python) :**
 ```bash
