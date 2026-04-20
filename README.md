@@ -51,7 +51,7 @@ Pour renforcer la robustesse, nous intégrons des passes **OLLVM (Obfuscated LLV
 ```bash
 python3 encrypt_pe.py <TARGET_MALWARE.exe> <OUTPUT_CODE.cpp>
 # Exemple : python3 encrypt_pe.py mimikatz.exe encrypted_pe.cpp
-
+```
 **2. Compilation du loader avec flags d'obfuscation :**
 ```bash
 # Exemple de compilation avec Control Flow Flattening (-fla) et Bogus Control Flow (-bcf)
@@ -71,6 +71,7 @@ python3 encrypt_pe.py <TARGET_MALWARE.exe> <OUTPUT_CODE.cpp>
     -static encrypted_pe.cpp -o orion.exe \
     -Wl,--start-group -lstdc++ -lpthread -lmingw32 -lgcc -lgcc_eh -Wl,--end-group
 
+``` 
 **à noter :** les flags d'obfuscation ne sont pas à rajouter puisque le packer l'intègre directement dans le code source du loader
 
 ## 🛠️ Phase de tests 
