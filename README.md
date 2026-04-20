@@ -1,93 +1,84 @@
-# OrionBypass
+# Projet Orion : Rapport d'Activité - Équipe Bypass
+
+## 🎯 Objectifs
+L'équipe **Bypass** est responsable de la neutralisation des mécanismes d'analyse statique et comportementale des systèmes d'exploitation. L'objectif final est de permettre l'exécution du malware développé par l'équipe *Ransomware* sans détection ni interruption par les solutions de sécurité (Antivirus/EDR).
+
+Dans le cadre de ce Proof of Concept (PoC), nos efforts se sont concentrés sur le contournement de **Windows Defender** pour l'exécution de **Mimikatz** (extraction de credentials et manipulation de privilèges).
+
+---
+
+## 🛠️ Stratégie de Contournement
+
+### Approches Passives (Considérées)
+Plusieurs techniques de discrétion ont été étudiées :
+* **Chiffrement des communications** : Sécurisation du flux entre le C2 et l'agent.
+* **Fonctions Custom** : Implémentation d'une fonction `sleep` personnalisée pour contrer l'accélération de l'horloge (système de sandbox de Windows Defender).
+
+### Approche Retenue : Loader & Obfuscation LLVM
+Pour offrir une solution flexible et universelle, nous avons développé un **Loader de Native PE** couplé à des LLVM passes grâce à l'outil **OLLVM**. Cette méthode permet d'invisibiliser n'importe quel binaire via une simple ligne de commande.
+
+---
+
+## 🏗️ Architecture du Packer / Loader
+
+L'intérêt majeur du loader est l'exécution **Fileless** (chargement direct en RAM), évitant ainsi l'analyse statique du fichier sur le disque.
+
+* **Outil utilisé** : Fork `LoadThat-PEAndAssembly` (ProcessusT).
+* **Avantage** : génère un loader dynamiquement qui exécute le programme directement en RAM
+* **Optimisation** : Utilisation de flags spécifiques pour cibler les fonctions critiques et limiter l'impact sur les performances.
+
+### Fonctionnement technique
+Le loader se substitue au *Windows Loader* standard pour minimiser les interactions avec l'OS et éviter les *hooks* de l'antivirus :
+
+1.  **Chiffrement par Chunks** : Le script Python (Packer) divise l'exécutable en segments chiffrés via 10 à 20 opérations XOR avec des clés dynamiques (différentes à chaque compilation).
+2.  **Randomisation** : Obfuscation des noms de variables et de fonctions dans le code source C++ généré.
+3.  **Gestion de la Mémoire** : Allocation d'espace via `VirtualAlloc` et copie des chunks déchiffrés dans un buffer via `memcpy`.
+4.  **Résolution d'IAT (Import Address Table)** : Le loader résout lui-même les DLL et adresses de fonctions nécessaires (Reflective DLL Injection) pour éviter les appels suspects durant le chargement initial.
+
+---
+
+## 🔐 Obfuscation avancée (OLLVM)
+
+Pour renforcer la robustesse, nous intégrons des passes **OLLVM (Obfuscated LLVM)** au niveau de l'IR (Intermediate Representation) via le compilateur `clang`.
+
+* **Outil utilisé** : Fork `ollvm16` (wwh1004).
+* **Avantage** : Rend le binaire illisible par désassemblage et efface les signatures statiques.
+* **Optimisation** : Utilisation de flags spécifiques pour cibler les fonctions critiques et limiter l'impact sur les performances.
+
+### Commandes d'utilisation
+
+**1. Génération du code source obfusqué (Python) :**
+```bash
+python3 encrypt_pe.py <TARGET_MALWARE.exe> <OUTPUT_CODE.cpp>
+# Exemple : python3 encrypt_pe.py mimikatz.exe encrypted_pe.cpp
+
+**2. Compilation du loader avec flags d'obfuscation :**
+```bash
+# Exemple de compilation avec Control Flow Flattening (-fla) et Bogus Control Flow (-bcf)
+./clang++ -mllvm -fla -mllvm -bcf \
+    -target x86_64-pc-windows-gnu \
+    -I /path/to/includes \
+    -L /path/to/libs \
+    -static encrypted_pe.cpp -o orion.exe \
+    -Wl,--start-group -lstdc++ -lpthread -lmingw32 -lgcc -lgcc_eh -Wl,--end-group
+# Exemple (selon le système de fichiers de ma vm) :
+../../../../../../../home/courtoma/llvm-project/build/bin/clang++ \		
+    -target x86_64-pc-windows-gnu \
+    -I usr/lib/gcc/x86_64_w64-mingw32/14-posix/include/c++ \
+    -I usr/lib/gcc/x86_64_w64-mingw32/14-posix/include/c++/ x86_64_w64-mingw32 \
+    -L usr/lib/gcc/x86_64_w64-mingw32/14-posix \
+    -L usr/ x86_64_w64-mingw32/lib  \		
+    -static encrypted_pe.cpp -o orion.exe \
+    -Wl,--start-group -lstdc++ -lpthread -lmingw32 -lgcc -lgcc_eh -Wl,--end-group
+
+**à noter :** les flags d'obfuscation ne sont pas à rajouter puisque le packer l'intègre directement dans le code source du loader
+
+## 🛠️ Phase de tests 
+
+En téléversant notre loader sur un site internet et en récupérant celui-ci depuis un vm cible avec Windows Defender activé, on teste :
 
 
+Le résultat nous donne une exécution de mimikatz (certes lente car mimikatz est énergivore en ressources) qui n’est pas détectée par le Windows Defender.
 
-## Getting started
+On vérifie aussi avec VirusTotal sa performance :
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gricad-gitlab.univ-grenoble-alpes.fr/courtoma/orionbypass.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-* [Set up project integrations](https://gricad-gitlab.univ-grenoble-alpes.fr/courtoma/orionbypass/-/settings/integrations)
-
-## Collaborate with your team
-
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
