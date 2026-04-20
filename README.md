@@ -77,9 +77,11 @@ python3 encrypt_pe.py <TARGET_MALWARE.exe> <OUTPUT_CODE.cpp>
 ## 🛠️ Phase de tests 
 
 En téléversant notre loader sur un site internet et en récupérant celui-ci depuis un vm cible avec Windows Defender activé, on teste :
+![Capture d'écran Exécution de Mimikatz](img/execution.png)
 
 
 Le résultat nous donne une exécution de mimikatz (certes lente car mimikatz est énergivore en ressources) qui n’est pas détectée par le Windows Defender.
 
 On vérifie aussi avec VirusTotal sa performance :
+![Capture d'écran VirusTotal](img/virtotal.png)
 
