@@ -1,8 +1,8 @@
-# Projet Orion : Rapport d'Activité — Équipe Bypass
+# 🌌 Projet Orion : Rapport d'Activité — Équipe Bypass
 
 > **Note de l'équipe** : Ce document retrace nos avancées sur les techniques d'évasion d'Antivirus et d'EDR.
 
-## Objectifs
+## 🎯 Objectifs
 
 L'équipe **Bypass** est responsable de la neutralisation des mécanismes d'analyse statique et comportementale des systèmes d'exploitation. L'objectif final est de permettre l'exécution du malware développé par l'équipe *Ransomware* sans détection ni interruption par les solutions de sécurité (Antivirus/EDR).
 
@@ -10,7 +10,7 @@ Dans le cadre de ce Proof of Concept (PoC), nos efforts se sont concentrés sur 
 
 ---
 
-## Stratégie de Contournement
+## 🛠️ Stratégie de Contournement
 
 ### Approches Passives (Considérées)
 Plusieurs techniques de discrétion ont été étudiées :
@@ -22,7 +22,7 @@ Pour offrir une solution flexible et universelle, nous avons développé un **Lo
 
 ---
 
-## Introduction des Outils
+## 📖 Introduction des Outils
 
 **Windows Defender** est un outil d'analyse statique, conçu pour analyser les fichiers présents dans le disque dur et signaler leur éventuelle dangerosité au kernel de l'OS. Il est souvent couplé à un outil d'Endpoint Detection & Response (**EDR**), qui s'occupe de l'analyse comportementale d'un fichier (lors de son exécution).
 
@@ -42,7 +42,7 @@ Pour rendre notre malware encore plus robuste, nous avons décidé d'inclure des
 
 ---
 
-## Plan
+## 📑 Plan
 
 1. **Exécuter un programme** : avant de commencer à parler de loader, il faut comprendre les étapes lors de l'exécution d'un programme.
 2. **Le custom loader**
@@ -51,7 +51,7 @@ Pour rendre notre malware encore plus robuste, nous avons décidé d'inclure des
 
 ---
 
-## 1. Exécuter un programme
+## 1️⃣ Exécuter un programme
 *Résumé des étapes lorsqu’on ordonne l’exécution d’un programme.*
 
 ### Étape 1 : Création de l’environnement d’exécution
@@ -88,7 +88,7 @@ Le processeur récupère les données enregistrées par le thread et exécute le
 
 ---
 
-## 2. Le Custom Loader
+## 2️⃣ Le Custom Loader
 
 Un custom loader doit faire exactement le même travail que le Windows Loader. Cependant, il **ne remplace pas** ce dernier. On exécute le custom loader dans lequel on a intégré notre PE (XORé et obfusqué).
 
@@ -108,7 +108,7 @@ De plus, les chunks du PE sont obfusqués via XOR et renommage aléatoire pour �
 
 ---
 
-## 3. Le Custom Packer
+## 3️⃣ Le Custom Packer
 
 Le **packer** est le script Python qui génère le code C++ du loader obfusqué à partir de la charge utile (`.exe`). 
 
@@ -120,7 +120,7 @@ Le **packer** est le script Python qui génère le code C++ du loader obfusqué 
 
 ---
 
-## 4. L'Obfuscation LLVM
+## 4️⃣ L'Obfuscation LLVM
 
 **LLVM** est un environnement intermédiaire de compilation. Il crée un code intermédiaire (LLVM IR), l'optimise, puis génère le code binaire cible.
 
@@ -139,7 +139,7 @@ On ajoute des attributs dans le code `.cpp` (ex: `__attribute((annotate("fla")))
 
 ---
 
-## En résumé : Que fait concrètement l'outil ?
+## 📦 En résumé : Que fait concrètement l'outil ?
 
 1. **Première étape :** Génération du loader obfusqué via le script Python (packer).
 2. **Deuxième étape :** Compilation du loader incluant la charge utile et les bibliothèques portables.
@@ -147,7 +147,7 @@ On ajoute des attributs dans le code `.cpp` (ex: `__attribute((annotate("fla")))
 
 ---
 
-## En résumé : Comment utiliser l'outil ? 
+## 💻 En résumé : Comment utiliser l'outil ? 
 
 **1. Génération du code source obfusqué (Python) :**
 ```bash
