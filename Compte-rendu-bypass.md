@@ -159,11 +159,6 @@ Lors de l’optimisation du code par les LLVM passes, chaque fonction est examin
 ---
 
 
-## Comment utiliser l'outil : 
-
----
-
-
 ## En résumé : que fait conrètement l'outil ?
 
 **_Première étape :_** génération du loader obfusqué à partir du script Python (le packer)
@@ -175,19 +170,41 @@ Lors de l’optimisation du code par les LLVM passes, chaque fonction est examin
 ---
 
 
+## En résumé : comment utiliser l'outil ? 
+
+**1. Génération du code source obfusqué (Python) :**
+```bash
+python3 encrypt_pe.py <TARGET_MALWARE.exe> <LOADER_CODE.cpp>
+# Exemple : python3 encrypt_pe.py mimikatz.exe encrypted_pe.cpp
+```
+**2. Compilation du loader avec flags d'obfuscation :**
+```bash
+# Simplifié
+clang++ <LOADER_SOURCE.cpp> -o <LOADER_MALWARE.exe> 
+# Exemple complet 
+    /home/user/llvm-project/build/bin/clang++ \		
+    -target x86_64-pc-windows-gnu \
+    -I usr/lib/gcc/x86_64_w64-mingw32/14-posix/include/c++ \
+    -I usr/lib/gcc/x86_64_w64-mingw32/14-posix/include/c++/ x86_64_w64-mingw32 \
+    -L usr/lib/gcc/x86_64_w64-mingw32/14-posix \
+    -L usr/ x86_64_w64-mingw32/lib  \		
+    -static encrypted_pe.cpp -o orion.exe \
+    -Wl,--start-group -lstdc++ -lpthread -lmingw32 -lgcc -lgcc_eh -Wl,--end-group
+
+``` 
+**à noter :** les flags d'obfuscation ne sont pas à rajouter puisque le packer l'intègre directement dans le code source du loader
+**à noter :** les options sont détaillées plus bas dans "Utilisation de MSYS et MinGW"
+
+---
+
 ### Installations et configurations 
 _grâce au gestionnaire de paquets winget_
 
 **Git :** pour cloner les projets llvm-project, ollvm16, mimikatz.
-
 **CMake :** génère des fichiers de configuration pour des systèmes de construction de logiciel (compilateurs dans notre cas). Permet à partir d’un fichier de configuration CMakeLists.txt, de générer le Makefile pour automatiser la compilation dans un logiciel.
-
 **Python :** pour l'exécution de scripts Python (notre packer)
-
 **Visual Studio Build Tools 2022 :** Outils de dev C++. Fournit compilateur, editeur de liens, et SDK Windows (bibliothèque de fichiers comme windows.h)
-
 **MSYS2 :** plateforme logicielle pour émuler env Unix sous Windows
-
 **MinGW-w64 GCC :** conpilation GNU installée via MSYS2. Fournit les bibliothèques standards à clang lorsqu’on utilise GNU au lieu de Windows
 
 ---
@@ -218,35 +235,6 @@ L’utilisation de MinGW se fait lors de la compilation, en intégrant des optio
 
 --- 
 
-
-## Commandes d'utilisation
-
-**1. Génération du code source obfusqué (Python) :**
-```bash
-python3 encrypt_pe.py <TARGET_MALWARE.exe> <OUTPUT_CODE.cpp>
-# Exemple : python3 encrypt_pe.py mimikatz.exe encrypted_pe.cpp
-```
-**2. Compilation du loader avec flags d'obfuscation :**
-```bash
-# Exemple de compilation avec Control Flow Flattening (-fla) et Bogus Control Flow (-bcf)
-./clang++ -mllvm -fla -mllvm -bcf \
-    -target x86_64-pc-windows-gnu \
-    -I /path/to/includes \
-    -L /path/to/libs \
-    -static encrypted_pe.cpp -o orion.exe \
-    -Wl,--start-group -lstdc++ -lpthread -lmingw32 -lgcc -lgcc_eh -Wl,--end-group
-# Exemple (selon le système de fichiers de ma vm) :
-../../../../../../../home/courtoma/llvm-project/build/bin/clang++ \		
-    -target x86_64-pc-windows-gnu \
-    -I usr/lib/gcc/x86_64_w64-mingw32/14-posix/include/c++ \
-    -I usr/lib/gcc/x86_64_w64-mingw32/14-posix/include/c++/ x86_64_w64-mingw32 \
-    -L usr/lib/gcc/x86_64_w64-mingw32/14-posix \
-    -L usr/ x86_64_w64-mingw32/lib  \		
-    -static encrypted_pe.cpp -o orion.exe \
-    -Wl,--start-group -lstdc++ -lpthread -lmingw32 -lgcc -lgcc_eh -Wl,--end-group
-
-``` 
-**à noter :** les flags d'obfuscation ne sont pas à rajouter puisque le packer l'intègre directement dans le code source du loader
 
 ## 🛠️ Phase de tests 
 
