@@ -31,8 +31,8 @@ Pour pouvoir exécuter le malware développé par l'équipe *DevRansomware* sur 
 ### Le Loader
 L'intérêt du loader est de pouvoir charger un exécutable directement en RAM (**"exécution Fileless"**), sans aucune présence sur le disque dur, et ainsi éviter l'analyse statique de Windows Defender.
 
-* **Le fonctionnement classique** : En principe, l'exécution d'un fichier repose sur le *Windows Loader*, un programme qui interagit directement avec le kernel : il charge le programme en mémoire et ordonne son exécution.
-* **Notre solution** : Le custom loader que nous utilisons agit comme un substitut du *Windows Loader*. Il réalise son travail à sa place de façon à interagir le moins possible avec le kernel. On évite ainsi les *hooks* des outils de détection sur certaines fonctions Windows sensibles, et l'exécutable n'est pas présent en dur.
+* En principe, l'exécution d'un fichier repose sur le *Windows Loader*, un programme qui interagit directement avec le kernel : il charge le programme en mémoire et ordonne son exécution.
+* Le custom loader que nous utilisons agit comme un substitut du *Windows Loader*. Il réalise son travail à sa place de façon à interagir le moins possible avec le kernel. On évite ainsi les *hooks* des outils de détection sur certaines fonctions Windows sensibles, et l'exécutable n'est pas présent en dur.
 
 Ce loader est lui-même généré par un **packer**, un script Python qui s'occupe d'obfusquer le code source du loader. 
 
@@ -77,33 +77,36 @@ Lorsqu’on donne l’ordre d’exécution, le noyau configure le registre *RIP*
 Instructions exécutées (dans l’ordre) :
 1. `LdrInitializeThunk` : configure la gestion des exceptions.
 2. `LdrpInitialize` : configure les structures du PEB.
-3. `LdrpInitializeProcess` : mappe les sections du binaire brut, résout les dépendances (charge les adresses des DLL dans l’IAT), et applique les permissions de sécurité.
+3. `LdrpInitializeProcess` : mappe les sections du binaire brut `.exe` du disque dur vers la mémoire virtuelle, résout les dépendances (charge les adresses des DLL listées dans l’IAT), et applique les permissions de sécurité sur chaque section.
 
 Après cette étape, le thread appelle le point d’entrée de chaque DLL (le thread fait le `DLLMain`), puis récupère l’adresse du point d’entrée du programme. Le registre RIP est modifié pour y pointer.
 
-> Le loader est donc une **séquence d’instructions de la ntdll.dll** (la bibliothèque bas niveau entre l'espace utilisateur et le noyau).
+> Le loader est donc une **séquence d’instructions de la ntdll.dll** (la bibliothèque la plus bas niveau entre l'espace utilisateur et le noyau).
 
 ### Étape 3 : Exécuter les séquences d’instructions du PE (.text)
-Le processeur récupère les données enregistrées par le thread et exécute les instructions binaires contenues dans `.text`. Ce dernier interagit avec les autres sections (IAT, Heap, Stack).
+Le processeur récupère les données enregistrées par le thread et exécute les instructions binaires contenues dans `.text`. Ce dernier interagit avec les autres sections (récupérer les fonctions de DLL dans l'IAT, interagir avec le Heap ou le Stack).
 
 ---
 
 ## 2️⃣ Le Custom Loader
 
-Un custom loader doit faire exactement le même travail que le Windows Loader. Cependant, il **ne remplace pas** ce dernier. On exécute le custom loader dans lequel on a intégré notre PE (XORé et obfusqué).
+A partir du fonctionnement du Windows Loader, on en déduit qu’un custom loader doit faire exactement le même travail que le Windows Loader. 
+Cependant, le custom loader **ne remplace pas** le Windows Loader. On va en fait exécuter le custom loader dans lequel on a intégré notre PE, qui est XORé et dont les noms de variables et fonctions sont obfusqués à chaque compilation. 
+
 
 **Les étapes sont les suivantes :**
 1. On ordonne l’exécution du custom loader.
 2. Le Windows loader fait son travail, et exécute le custom loader.
 3. Le custom loader s’occupe de loader le vrai exécutable en RAM :
-    * *Parsing* des en-têtes PE (découpage des chunks, tailles, placement mémoire).
-    * Allocation mémoire (`VirtualAlloc`), copie des chunks (`memcpy`).
+    * *Parsing* des en-têtes PE (découpage des chunks, leur taille et placement en mémoire).
+    * Allocation mémoire (`VirtualAlloc`), copie des chunks en mémoire (`memcpy`).
     * Relocalisation des sections du `.reloc` (application d'un delta d’adresses).
-    * Résolution des importations (trouver les fonctions DLL et écrire dans l’IAT).
+    * Résolution des importations (trouver les fonctions DLL et écrire leurs adresses dans l’IAT).
     * Appel du point d’entrée du `.text` (après les `DLLMain`).
 
 **Contournement des EDR :**
-Les EDR placent des *hooks* dans la `ntdll.dll` pour intercepter les syscalls suspects (`VirtualAlloc`, etc.). Pour contourner cela, le loader récupère sur le disque dur une version propre de la `ntdll.dll` (non hookée) et écrase celle située dans la mémoire virtuelle du processus. 
+Les EDR placent des *hooks* dans la `ntdll.dll` pour intercepter les syscalls suspects (`VirtualAlloc`, etc.). Pour contourner cela, le loader récupère sur le disque dur une version propre de la `ntdll.dll` (non hookée par l'EDR) et écrase celle située dans la mémoire virtuelle du processus.
+
 De plus, les chunks du PE sont obfusqués via XOR et renommage aléatoire pour échapper aux signatures statiques.
 
 ---
@@ -122,28 +125,32 @@ Le **packer** est le script Python qui génère le code C++ du loader obfusqué 
 
 ## 4️⃣ L'Obfuscation LLVM
 
-**LLVM** est un environnement intermédiaire de compilation. Il crée un code intermédiaire (LLVM IR), l'optimise, puis génère le code binaire cible.
+LLVM est un environnement intermédiaire lors de la compilation d’un fichier, utilisé en complément des compilateurs (comme `clang`). Le rôle de cet outil est de **générer un code intermédiaire** (appelé LLVM IR, universel à tous les environnements d’exécution) obtenu à partir de la compilation, de l’**optimiser**, puis de **générer le code binaire** à partir de ce code (selon l’environnement d’exécution, i.e les spécificités du processeur et du système d’exploitation cible).
 
-L’obfuscation LLVM (via l'outil **ollvm16**) détourne l’étape d’optimisation en y injectant des **« LLVM passes »** malveillantes :
-* **Control Flow Flattening (FLA)** : "Aplatit" la logique en insérant tout dans un `switch` central contrôlé par une variable d'état.
-* **Bogus Control Flow (BCF)** : Ajoute du *junk code* (code mort, équations complexes) pour noyer le code légitime.
+L’obfuscation llvm est une modification de l’infrastructure de LLVM, conçue pour brouiller intentionnellement le code machine généré. Son but est de rendre l’analyse et le fonctionnement statique du programme incompréhensible aux yeux d’un humain ou d’un outil de sécurité, tout en conservant son comportement.
+
+L’optimisation du code se fait grâce à des « LLVM passes ». L' obfuscation LLVM permet concrètement de détourner l’étape d’optimisation du code intermédiaire. C’est ce que fait précisément l’outil `ollvm16`, en y injectant ses propres « LLVM passes » comme :
+* **Control Flow Flattening (FLA)** : "Aplatit" la logique (boucles, conditions) en insérant tout dans un `switch` central contrôlé par une variable d'état.
+* **Bogus Control Flow (BCF)** : Ajoute du *junk code* (code mort, équations complexes, branchements inutiles) pour noyer le code légitime.
 * **Substitution d’instructions (SUB)** : Transforme des mathématiques simples en opérations logiques complexes (`XOR`, `AND`, `NOT`).
 
-**Comment ça marche ?**
-On ajoute des attributs dans le code `.cpp` (ex: `__attribute((annotate("fla")))`). Lors de la compilation, LLVM lit ces métadonnées et applique la passe correspondante à la fonction ciblée.
+#### Comment sont appliquées ces obfuscations ?
+On ajoute des attributs dans le code source `.cpp` (ex: `__attribute((annotate("fla")))`). Lors de la **compilation**, le compilateur conserve ce string comme une étiquette dans l’arbre syntaxique abstrait (AST) de la fonction.
+Lors de la **génération du code intémerdiaire**, les étiquettes sont converties par le compilateur en métadonnées LLVM. 
+Lors de l’**optimisation du code par les LLVM passes**, chaque fonction est examinée par chaque passe LLVM ; à ce moment-là LLVM vérifie si la fonction possède l’étiquette de la passe dans ses métadonnées (en l’occurrence, lorsqu’une passe d’obfuscation examine une fonction qui contient `__attribute((annotate("fla")))`, elle applique la passe à cette fonction, sinon elle ne fait rien sur celle-ci)
 
-**Objectifs :**
-* **Pénalité de performance** : Le code mort ralentit l'exécution, ce qui aide à fuir les *sandboxs* d'EDR (qui ont un temps limité).
+#### Objectifs de l’utilisation de LLVM passes :
+* **Pénalité de performance** : Le code mort doit réellement être exécuté. Il ralentit l'exécution, ce qui aide à fuir les *sandboxs* d'EDR (qui ont un temps limité).
 * **Résistance au Reverse Engineering** : Le code décompilé devient illisible.
-* **Destruction des signatures** : Chaque compilation génère une suite d'octets unique.
+* **Destruction des signatures** : les algorithmes d’obfuscation génère un code machine différent à chaque compilation. Les suites d’octets originellement connues par les analyseurs statiques (i.e les signatures statiques) ne le seront pas ici 
 
 ---
 
 ## 📦 En résumé : Que fait concrètement l'outil ?
 
 1. **Première étape :** Génération du loader obfusqué via le script Python (packer).
-2. **Deuxième étape :** Compilation du loader incluant la charge utile et les bibliothèques portables.
-3. **Troisième étape :** Application des *LLVM passes* pour obfusquer le code IR, détruire les signatures et complexifier l'analyse.
+2. **Deuxième étape :** Compilation du loader incluant la charge utile, ainsi que toutes les biblliothèques nécessaires à l'exécution du fichier sous n'importe quel OS
+3. **Troisième étape :** Application des *LLVM passes* pour obfusquer le code IR lors de son optimisation, détruire les signatures et complexifier l'analyse lors de la décompilation.
 
 ---
 
@@ -170,20 +177,24 @@ clang++ <LOADER_SOURCE.cpp> -o <LOADER_MALWARE.exe>
 -static encrypted_pe.cpp -o orion.exe \
 -Wl,--start-group -lstdc++ -lpthread -lmingw32 -lgcc -lgcc_eh -Wl,--end-group
 ```
-**à noter :** les flags d'obfuscation sont intégrés directement dans le code source du packer
-**à noter :** les options sont détaillées plus bas dans "Utilisation de MSYS et MinGW"
+**à noter :** les flags d'obfuscation sont intégrés directement dans le code source du packer.Les options sont détaillées plus bas dans "Utilisation de MSYS et MinGW"
 
 ---
 
 ### Installations et configurations 
 _(grâce au gestionnaire de paquets `winget`)_
 
-**Git :** pour cloner les projets `llvm-project`, `ollvm16`, `mimikatz`.
-**CMake :** pour générer les fichiers de configuration de compilation (`Makefile`).
+**Git :** pour cloner les projets `llvm-project`, `ollvm16`, `mimikatz`
+
+**CMake :** pour générer les fichiers de configuration de compilation (`Makefile`)
+
 **Python :** pour l'exécution de scripts Python (notre packer)
-**Visual Studio Build Tools 2022 :** Outils C++ (compilateur, éditeur de liens, SDK Windows).
-**MSYS2 :** Plateforme émulant un environnement Unix sous Windows.
-**MinGW-w64 GCC :** Compilation GNU via MSYS2 pour fournir les bibliothèques standards à `clang`.
+
+**Visual Studio Build Tools 2022 :** Outils C++ (compilateur, éditeur de liens, SDK Windows)
+
+**MSYS2 :** Plateforme émulant un environnement Unix sous Windows
+
+**MinGW-w64 GCC :** Compilation GNU via MSYS2 pour fournir les bibliothèques standards à `clang`
 
 ---
 
