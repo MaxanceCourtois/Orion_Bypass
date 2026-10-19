@@ -179,10 +179,15 @@ Lors de l’optimisation du code par les LLVM passes, chaque fonction est examin
 _grâce au gestionnaire de paquets winget_
 
 **Git :** pour cloner les projets llvm-project, ollvm16, mimikatz.
+
 **CMake :** génère des fichiers de configuration pour des systèmes de construction de logiciel (compilateurs dans notre cas). Permet à partir d’un fichier de configuration CMakeLists.txt, de générer le Makefile pour automatiser la compilation dans un logiciel.
+
 **Python :** pour l'exécution de scripts Python (notre packer)
+
 **Visual Studio Build Tools 2022 :** Outils de dev C++. Fournit compilateur, editeur de liens, et SDK Windows (bibliothèque de fichiers comme windows.h)
+
 **MSYS2 :** plateforme logicielle pour émuler env Unix sous Windows
+
 **MinGW-w64 GCC :** conpilation GNU installée via MSYS2. Fournit les bibliothèques standards à clang lorsqu’on utilise GNU au lieu de Windows
 
 ---
@@ -204,8 +209,11 @@ Performances :
 L’utilisation de MinGW se fait lors de la compilation, en intégrant des options à la ligne de commande. 
 
 `-target x86_64-pc-windows-gnu` : ordonne au compilateur clang de générer un binaire déstiné à un processeur 64bits, tournant sur Windows, et respectant l’ABI de GNU (ie on bascule sur MinGW au lieu de MSVC)
+
 `-I <chemin>` : _include directory :_ indique au compilateur les dossiers supplémentaires dans lesquels il doit chercher des fichiers d’en-tête (comme <stdio.h> par ex)
+
 `-L <chemin>` : _library directory :_ indique à l’éditeur de liens où trouver les bibliothèques binaires précompilées (une fois le code compilé le linker lie le programme aux fonctions natives de l’OS, d’où le besoin de les inclure pour la portabilité)
+
 `-Wl,--start-group -lstdc++ -lpthread -lmingw32 -lgcc -lgcc_eh -Wl,--end-group` : _spécifique pour le linker :_ on lui lie manuellement les bibliothèques dont il a besoin, et on le force à lire en boucle les bibliothèques jusqu’à ce que toutes les dépendances croisées (i.e dépendance circulaire : la bib A a besoin de la bib B, et la bib B a besoin de la bib A) soient résolues
 
 --- 
