@@ -237,3 +237,7 @@ Le résultat nous donne une exécution de mimikatz (certes lente car mimikatz es
 On vérifie aussi avec VirusTotal sa performance :
 ![Capture d'écran VirusTotal](img/virtotal.png)
 
+
+## Crédits :
+Ce projet utilise des composants de LoadThatPE par ProcessusT, et a été compilé grâce au projet ollvm-16 de wwh1004
+
