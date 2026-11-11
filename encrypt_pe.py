@@ -164,6 +164,7 @@ def generate_encrypted_pe_chunks(input_file, output_file=None, chunk_size=256):
 
     # ExecPE functions
 
+    # LLVM passes attributes
     fla_attr = '__attribute((annotate("fla")))'
     bcf_attr = '__attribute((annotate("bcf")))'
     sub_attr = '__attribute((annotate("sub")))'
