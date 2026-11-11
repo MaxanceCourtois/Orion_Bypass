@@ -1,3 +1,9 @@
+// This file includes code based on LoadThatPE by ProcessusT.
+// Copyright (c) ProcessusT.
+// Licensed under the GNU General Public License v3.0 (GPL-3.0).
+// Original repository: https://github.com/ProcessusT/LoadThat-PEandAssembly
+
+
 import sys
 import os
 import random
